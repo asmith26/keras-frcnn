@@ -112,11 +112,18 @@ rpn = nn.rpn(shared_layers, num_anchors)
 
 classifier = nn.classifier(shared_layers, roi_input, C.num_rois, nb_classes=len(classes_count), trainable=True)
 
+PLOT_IMG = False
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input], classifier)
 
 # this is a model that holds both the RPN and the classifier, used to load/save weights for the models
 model_all = Model([img_input, roi_input], rpn[:2] + classifier)
+
+PLOT_MODELS = False
+if PLOT_MODELS:
+	from keras.utils.vis_utils import plot_model
+	plot_model(model_rpn, to_file='model_rpn.png', show_shapes=True, show_layer_names=True)
+	plot_model(model_all, to_file='model_all.png', show_shapes=True, show_layer_names=True)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
@@ -134,7 +141,7 @@ model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), l
 model_classifier.compile(optimizer=optimizer_classifier, loss=[losses.class_loss_cls, losses.class_loss_regr(len(classes_count)-1)], metrics={'dense_class_{}'.format(len(classes_count)): 'accuracy'})
 model_all.compile(optimizer='sgd', loss='mae')
 
-epoch_length = 1000
+epoch_length = 1000 # 10
 num_epochs = int(options.num_epochs)
 iter_num = 0
 
@@ -163,15 +170,24 @@ for epoch_num in range(num_epochs):
 				if mean_overlapping_bboxes == 0:
 					print('RPN is not producing bounding boxes that overlap the ground truth boxes. Check RPN settings or keep training.')
 
+			# [kd] outputs the image and a representation of the anchor boxes with 128 +ve anchor boxes, and 128 -ve anchor boxes for each gt box,
+			# [kd] and the coordinates for regression
+			# TODO understand the Y data format
 			X, Y, img_data = data_gen_train.next()
 
+			# [kd] train to minimise the loss, outputs ['loss', 'rpn_out_class_loss', 'rpn_out_regress_loss']
+			# [kd] this is adjusting the anchor boxes and the an anchor coordinates
 			loss_rpn = model_rpn.train_on_batch(X, Y)
 
+			# [kd] returns predictions list of length 2, with arrays of shape (1, 38, 56, 9), (1, 38, 56, 36)
 			P_rpn = model_rpn.predict_on_batch(X)
 
+			# [kd] This returns only 300 boxes containing objects TODO understand 256 above vs the 300 here
+			# [kd] this gets rid of the overlapping anchor boxes from the same object
 			R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7, max_boxes=300)
 
 			# note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
+			# TODO where is the +ve, -ve coming from in Y1
 			X2, Y1, Y2 = roi_helpers.calc_iou(R, img_data, C, class_mapping)
 
 			if X2 is None:
@@ -214,7 +230,8 @@ for epoch_num in range(num_epochs):
 					sel_samples = random.choice(neg_samples)
 				else:
 					sel_samples = random.choice(pos_samples)
-
+			# [kd] this takes X - raw image data, X2 - regions of interest, Y1 - class, Y2 - regression label and coords
+			# [kd] metrics ['loss', 'dense_class_21_loss', 'dense_regress_21_loss', 'dense_class_21_acc']
 			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]], [Y1[:, sel_samples, :], Y2[:, sel_samples, :]])
 
 			losses[iter_num, 0] = loss_rpn[1]
