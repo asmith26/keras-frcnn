@@ -92,3 +92,9 @@ ENV/
 
 VOCdevkit
 imgs
+fish-data
+model*
+config.pickle
+
+.floyd*
+floyd*
