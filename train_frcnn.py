@@ -16,37 +16,41 @@ from keras_frcnn import resnet as nn
 import keras_frcnn.roi_helpers as roi_helpers
 from keras.utils import generic_utils
 
+from datetime import datetime
+from keras import __version__
+print __version__
+
 sys.setrecursionlimit(40000)
 
 parser = OptionParser()
 
 parser.add_option("-p", "--path", dest="train_path", help="Path to training data.")
 parser.add_option("-o", "--parser", dest="parser", help="Parser to use. One of simple or pascal_voc",
-				default="pascal_voc"),
+                default="pascal_voc"),
 parser.add_option("-n", "--num_rois", dest="num_rois",
-				help="Number of ROIs per iteration. Higher means more memory use.", default=32)
+                help="Number of ROIs per iteration. Higher means more memory use.", default=32)
 parser.add_option("--hf", dest="horizontal_flips", help="Augment with horizontal flips in training. (Default=true).", action="store_true", default=False)
 parser.add_option("--vf", dest="vertical_flips", help="Augment with vertical flips in training. (Default=false).", action="store_true", default=False)
 parser.add_option("--rot", "--rot_90", dest="rot_90", help="Augment with 90 degree rotations in training. (Default=false).",
-				  action="store_true", default=False)
+                  action="store_true", default=False)
 parser.add_option("--num_epochs", dest="num_epochs", help="Number of epochs.", default=2000)
 parser.add_option("--config_filename", dest="config_filename", help=
-				"Location to store all the metadata related to the training (to be used when testing).",
-				default="config.pickle")
+                "Location to store all the metadata related to the training (to be used when testing).",
+                default="config.pickle")
 parser.add_option("--output_weight_path", dest="output_weight_path", help="Output path for weights.", default='./model_frcnn.hdf5')
 parser.add_option("--input_weight_path", dest="input_weight_path", help="Input path for weights. If not specified, will try to load default weights provided by keras.")
 
 (options, args) = parser.parse_args()
 
 if not options.train_path:   # if filename is not given
-	parser.error('Error: path to training data must be specified. Pass --path to command line')
+    parser.error('Error: path to training data must be specified. Pass --path to command line')
 
 if options.parser == 'pascal_voc':
-	from keras_frcnn.pascal_voc_parser import get_data
+    from keras_frcnn.pascal_voc_parser import get_data
 elif options.parser == 'simple':
-	from keras_frcnn.simple_parser import get_data
+    from keras_frcnn.simple_parser import get_data
 else:
-	raise ValueError("Command line option parser must be one of 'pascal_voc' or 'simple'")
+    raise ValueError("Command line option parser must be one of 'pascal_voc' or 'simple'")
 
 # pass the settings from the command line, and persist them in the config object
 C = config.Config()
@@ -59,13 +63,13 @@ C.rot_90 = bool(options.rot_90)
 C.model_path = options.output_weight_path
 
 if options.input_weight_path:
-	C.base_net_weights = options.input_weight_path
+    C.base_net_weights = options.input_weight_path
 
 all_imgs, classes_count, class_mapping = get_data(options.train_path)
 
 if 'bg' not in classes_count:
-	classes_count['bg'] = 0
-	class_mapping['bg'] = len(class_mapping)
+    classes_count['bg'] = 0
+    class_mapping['bg'] = len(class_mapping)
 
 C.class_mapping = class_mapping
 
@@ -78,8 +82,8 @@ print('Num classes (including bg) = {}'.format(len(classes_count)))
 config_output_filename = options.config_filename
 
 with open(config_output_filename, 'w') as config_f:
-	pickle.dump(C,config_f)
-	print('Config has been written to {}, and can be loaded when testing to ensure correct results'.format(config_output_filename))
+    pickle.dump(C,config_f)
+    print('Config has been written to {}, and can be loaded when testing to ensure correct results'.format(config_output_filename))
 
 random.shuffle(all_imgs)
 
@@ -96,9 +100,9 @@ data_gen_train = data_generators.get_anchor_gt(train_imgs, classes_count, C, K.i
 data_gen_val = data_generators.get_anchor_gt(val_imgs, classes_count, C, K.image_dim_ordering(), mode='val')
 
 if K.image_dim_ordering() == 'th':
-	input_shape_img = (3, None, None)
+    input_shape_img = (3, None, None)
 else:
-	input_shape_img = (None, None, 3)
+    input_shape_img = (None, None, 3)
 
 img_input = Input(shape=input_shape_img)
 roi_input = Input(shape=(C.num_rois, 4))
@@ -121,19 +125,19 @@ model_all = Model([img_input, roi_input], rpn[:2] + classifier)
 
 PLOT_MODELS = False
 if PLOT_MODELS:
-	from keras.utils.vis_utils import plot_model
-	plot_model(model_rpn, to_file='model_rpn.png', show_shapes=True, show_layer_names=True)
-	plot_model(model_all, to_file='model_all.png', show_shapes=True, show_layer_names=True)
+    from keras.utils.vis_utils import plot_model
+    plot_model(model_rpn, to_file='model_rpn.png', show_shapes=True, show_layer_names=True)
+    plot_model(model_all, to_file='model_all.png', show_shapes=True, show_layer_names=True)
 
 try:
-	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights(C.base_net_weights, by_name=True)
-	model_classifier.load_weights(C.base_net_weights, by_name=True)
+    print('loading weights from {}'.format(C.base_net_weights))
+    model_rpn.load_weights(C.base_net_weights, by_name=True)
+    model_classifier.load_weights(C.base_net_weights, by_name=True)
 except:
-	print('Could not load pretrained model weights. Weights can be found at {} and {}'.format(
-		'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_th_dim_ordering_th_kernels_notop.h5',
-		'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
-	))
+    print('Could not load pretrained model weights. Weights can be found at {} and {}'.format(
+        'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_th_dim_ordering_th_kernels_notop.h5',
+        'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
+    ))
 
 optimizer = Adam(lr=1e-4)
 optimizer_classifier = Adam(lr=1e-4)
@@ -158,127 +162,128 @@ print('Starting training')
 
 for epoch_num in range(num_epochs):
 
-	progbar = generic_utils.Progbar(epoch_length)
-	print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
+    progbar = generic_utils.Progbar(epoch_length)
+    print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
 
-	while True:
-		try:
-			if len(rpn_accuracy_rpn_monitor) == epoch_length and C.verbose:
-				mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor))/len(rpn_accuracy_rpn_monitor)
-				rpn_accuracy_rpn_monitor = []
-				print('Average number of overlapping bounding boxes from RPN = {} for {} previous iterations'.format(mean_overlapping_bboxes, epoch_length))
-				if mean_overlapping_bboxes == 0:
-					print('RPN is not producing bounding boxes that overlap the ground truth boxes. Check RPN settings or keep training.')
+    while True:
+        try:
+            if len(rpn_accuracy_rpn_monitor) == epoch_length and C.verbose:
+                mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor))/len(rpn_accuracy_rpn_monitor)
+                rpn_accuracy_rpn_monitor = []
+                print('Average number of overlapping bounding boxes from RPN = {} for {} previous iterations'.format(mean_overlapping_bboxes, epoch_length))
+                if mean_overlapping_bboxes == 0:
+                    print('RPN is not producing bounding boxes that overlap the ground truth boxes. Check RPN settings or keep training.')
 
-			# [kd] outputs the image and a representation of the anchor boxes with 128 +ve anchor boxes, and 128 -ve anchor boxes for each gt box,
-			# [kd] and the coordinates for regression
-			# TODO understand the Y data format
-			X, Y, img_data = data_gen_train.next()
+            # [kd] outputs the image and a representation of the anchor boxes with 128 +ve anchor boxes, and 128 -ve anchor boxes for each gt box,
+            # [kd] and the coordinates for regression
+            # TODO understand the Y data format
+            X, Y, img_data = data_gen_train.next()
 
-			# [kd] train to minimise the loss, outputs ['loss', 'rpn_out_class_loss', 'rpn_out_regress_loss']
-			# [kd] this is adjusting the anchor boxes and the an anchor coordinates
-			loss_rpn = model_rpn.train_on_batch(X, Y)
+            # [kd] train to minimise the loss, outputs ['loss', 'rpn_out_class_loss', 'rpn_out_regress_loss']
+            # [kd] this is adjusting the anchor boxes and the an anchor coordinates
+            loss_rpn = model_rpn.train_on_batch(X, Y)
 
-			# [kd] returns predictions list of length 2, with arrays of shape (1, 38, 56, 9), (1, 38, 56, 36)
-			P_rpn = model_rpn.predict_on_batch(X)
+            # [kd] returns predictions list of length 2, with arrays of shape (1, 38, 56, 9), (1, 38, 56, 36)
+            P_rpn = model_rpn.predict_on_batch(X)
 
-			# [kd] This returns only 300 boxes containing objects TODO understand 256 above vs the 300 here
-			# [kd] this gets rid of the overlapping anchor boxes from the same object
-			R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7, max_boxes=300)
+            # [kd] This returns only 300 boxes containing objects TODO understand 256 above vs the 300 here
+            # [kd] this gets rid of the overlapping anchor boxes from the same object
+            R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7, max_boxes=300)
 
-			# note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
-			# TODO where is the +ve, -ve coming from in Y1
-			X2, Y1, Y2 = roi_helpers.calc_iou(R, img_data, C, class_mapping)
+            # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
+            # TODO where is the +ve, -ve coming from in Y1
+            X2, Y1, Y2 = roi_helpers.calc_iou(R, img_data, C, class_mapping)
 
-			if X2 is None:
-				rpn_accuracy_rpn_monitor.append(0)
-				rpn_accuracy_for_epoch.append(0)
-				continue
+            if X2 is None:
+                rpn_accuracy_rpn_monitor.append(0)
+                rpn_accuracy_for_epoch.append(0)
+                continue
 
-			neg_samples = np.where(Y1[0, :, -1] == 1)
-			pos_samples = np.where(Y1[0, :, -1] == 0)
+            neg_samples = np.where(Y1[0, :, -1] == 1)
+            pos_samples = np.where(Y1[0, :, -1] == 0)
 
-			if len(neg_samples) > 0:
-				neg_samples = neg_samples[0]
-			else:
-				neg_samples = []
+            if len(neg_samples) > 0:
+                neg_samples = neg_samples[0]
+            else:
+                neg_samples = []
 
-			if len(pos_samples) > 0:
-				pos_samples = pos_samples[0]
-			else:
-				pos_samples = []
+            if len(pos_samples) > 0:
+                pos_samples = pos_samples[0]
+            else:
+                pos_samples = []
 
-			rpn_accuracy_rpn_monitor.append(len(pos_samples))
-			rpn_accuracy_for_epoch.append((len(pos_samples)))
+            rpn_accuracy_rpn_monitor.append(len(pos_samples))
+            rpn_accuracy_for_epoch.append((len(pos_samples)))
 
-			if C.num_rois > 1:
-				if len(pos_samples) < C.num_rois/2:
-					selected_pos_samples = pos_samples.tolist()
-				else:
-					selected_pos_samples = np.random.choice(pos_samples, C.num_rois/2, replace=False).tolist()
-				try:
-					selected_neg_samples = np.random.choice(neg_samples, C.num_rois - len(selected_pos_samples), replace=False).tolist()
-				except:
-					selected_neg_samples = np.random.choice(neg_samples, C.num_rois - len(selected_pos_samples), replace=True).tolist()
+            if C.num_rois > 1:
+                if len(pos_samples) < C.num_rois/2:
+                    selected_pos_samples = pos_samples.tolist()
+                else:
+                    selected_pos_samples = np.random.choice(pos_samples, C.num_rois/2, replace=False).tolist()
+                try:
+                    selected_neg_samples = np.random.choice(neg_samples, C.num_rois - len(selected_pos_samples), replace=False).tolist()
+                except:
+                    selected_neg_samples = np.random.choice(neg_samples, C.num_rois - len(selected_pos_samples), replace=True).tolist()
 
-				sel_samples = selected_pos_samples + selected_neg_samples
-			else:
-				# in the extreme case where num_rois = 1, we pick a random pos or neg sample
-				selected_pos_samples = pos_samples.tolist()
-				selected_neg_samples = neg_samples.tolist()
-				if np.random.randint(0, 2):
-					sel_samples = random.choice(neg_samples)
-				else:
-					sel_samples = random.choice(pos_samples)
-			# [kd] this takes X - raw image data, X2 - regions of interest, Y1 - class, Y2 - regression label and coords
-			# [kd] metrics ['loss', 'dense_class_21_loss', 'dense_regress_21_loss', 'dense_class_21_acc']
-			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]], [Y1[:, sel_samples, :], Y2[:, sel_samples, :]])
+                sel_samples = selected_pos_samples + selected_neg_samples
+            else:
+                # in the extreme case where num_rois = 1, we pick a random pos or neg sample
+                selected_pos_samples = pos_samples.tolist()
+                selected_neg_samples = neg_samples.tolist()
+                if np.random.randint(0, 2):
+                    sel_samples = random.choice(neg_samples)
+                else:
+                    sel_samples = random.choice(pos_samples)
+            # [kd] this takes X - raw image data, X2 - regions of interest, Y1 - class, Y2 - regression label and coords
+            # [kd] metrics ['loss', 'dense_class_21_loss', 'dense_regress_21_loss', 'dense_class_21_acc']
+            loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]], [Y1[:, sel_samples, :], Y2[:, sel_samples, :]])
 
-			losses[iter_num, 0] = loss_rpn[1]
-			losses[iter_num, 1] = loss_rpn[2]
+            losses[iter_num, 0] = loss_rpn[1]
+            losses[iter_num, 1] = loss_rpn[2]
 
-			losses[iter_num, 2] = loss_class[1]
-			losses[iter_num, 3] = loss_class[2]
-			losses[iter_num, 4] = loss_class[3]
+            losses[iter_num, 2] = loss_class[1]
+            losses[iter_num, 3] = loss_class[2]
+            losses[iter_num, 4] = loss_class[3]
 
-			iter_num += 1
+            iter_num += 1
 
-			progbar.update(iter_num, [('rpn_cls', np.mean(losses[:iter_num, 0])), ('rpn_regr', np.mean(losses[:iter_num, 1])),
-									  ('detector_cls', np.mean(losses[:iter_num, 2])), ('detector_regr', np.mean(losses[:iter_num, 0]))])
+            progbar.update(iter_num, [('rpn_cls', np.mean(losses[:iter_num, 0])), ('rpn_regr', np.mean(losses[:iter_num, 1])),
+                                      ('detector_cls', np.mean(losses[:iter_num, 2])), ('detector_regr', np.mean(losses[:iter_num, 0]))])
 
-			if iter_num == epoch_length:
-				loss_rpn_cls = np.mean(losses[:, 0])
-				loss_rpn_regr = np.mean(losses[:, 1])
-				loss_class_cls = np.mean(losses[:, 2])
-				loss_class_regr = np.mean(losses[:, 3])
-				class_acc = np.mean(losses[:, 4])
+            if iter_num == epoch_length:
+                loss_rpn_cls = np.mean(losses[:, 0])
+                loss_rpn_regr = np.mean(losses[:, 1])
+                loss_class_cls = np.mean(losses[:, 2])
+                loss_class_regr = np.mean(losses[:, 3])
+                class_acc = np.mean(losses[:, 4])
 
-				mean_overlapping_bboxes = float(sum(rpn_accuracy_for_epoch)) / len(rpn_accuracy_for_epoch)
-				rpn_accuracy_for_epoch = []
+                mean_overlapping_bboxes = float(sum(rpn_accuracy_for_epoch)) / len(rpn_accuracy_for_epoch)
+                rpn_accuracy_for_epoch = []
 
-				if C.verbose:
-					print('Mean number of bounding boxes from RPN overlapping ground truth boxes: {}'.format(mean_overlapping_bboxes))
-					print('Classifier accuracy for bounding boxes from RPN: {}'.format(class_acc))
-					print('Loss RPN classifier: {}'.format(loss_rpn_cls))
-					print('Loss RPN regression: {}'.format(loss_rpn_regr))
-					print('Loss Detector classifier: {}'.format(loss_class_cls))
-					print('Loss Detector regression: {}'.format(loss_class_regr))
-					print('Elapsed time: {}'.format(time.time() - start_time))
+                if C.verbose:
+                    print('Mean number of bounding boxes from RPN overlapping ground truth boxes: {}'.format(mean_overlapping_bboxes))
+                    print('Classifier accuracy for bounding boxes from RPN: {}'.format(class_acc))
+                    print('Loss RPN classifier: {}'.format(loss_rpn_cls))
+                    print('Loss RPN regression: {}'.format(loss_rpn_regr))
+                    print('Loss Detector classifier: {}'.format(loss_class_cls))
+                    print('Loss Detector regression: {}'.format(loss_class_regr))
+                    print('Elapsed time: {}'.format(time.time() - start_time))
 
-				curr_loss = loss_rpn_cls + loss_rpn_regr + loss_class_cls + loss_class_regr
-				iter_num = 0
-				start_time = time.time()
+                curr_loss = loss_rpn_cls + loss_rpn_regr + loss_class_cls + loss_class_regr
+                iter_num = 0
+                start_time = time.time()
 
-				if curr_loss < best_loss:
-					if C.verbose:
-						print('Total loss decreased from {} to {}, saving weights'.format(best_loss,curr_loss))
-					best_loss = curr_loss
-					model_all.save_weights(C.model_path)
+                if curr_loss < best_loss:
+                    if C.verbose:
+                        print('Total loss decreased from {} to {}, saving weights'.format(best_loss,curr_loss))
+                    best_loss = curr_loss
+                    now = datetime.now().strftime("%Y%m%d_%H%M%S.h5")
+                    model_all.save_weights("/output/{}.hdf5".format(now))
 
-				break
+                break
 
-		except Exception as e:
-			print('Exception: {}'.format(e))
-			continue
+        except Exception as e:
+            print('Exception: {}'.format(e))
+            continue
 
 print('Training complete, exiting.')
