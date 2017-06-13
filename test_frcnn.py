@@ -1,4 +1,6 @@
 import os
+from distutils.dir_util import mkpath
+import json
 import cv2
 import numpy as np
 import sys
@@ -21,14 +23,15 @@ parser.add_option("-n", "--num_rois", dest="num_rois",
 				help="Number of ROIs per iteration. Higher means more memory use.", default=32)
 parser.add_option("--config_filename", dest="config_filename", help=
 				"Location to read the metadata related to the training (generated when training).",
-				default="config.pickle")
+				default="config_latest_floyd_model.pickle")
 
 (options, args) = parser.parse_args()
 
 if not options.test_path:   # if filename is not given
 	parser.error('Error: path to test data must be specified. Pass --path to command line')
 
-
+mkpath("/output/imgs/")
+mkpath("/output/predictions/")
 config_output_filename = options.config_filename
 
 with open(config_output_filename, 'r') as f_in:
@@ -116,10 +119,10 @@ bbox_threshold = 0.8
 
 visualise = True
 
-for idx, img_name in enumerate(sorted(os.listdir(img_path))):
+for img_name in sorted(os.listdir(img_path)):
 	if not img_name.lower().endswith(('.bmp', '.jpeg', '.jpg', '.png', '.tif', '.tiff')):
 		continue
-	print(img_name)
+	#print(img_name)
 	st = time.time()
 	filepath = os.path.join(img_path,img_name)
 
@@ -195,17 +198,18 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 
 	all_dets = []
 
-	for key in bboxes:
-		bbox = np.array(bboxes[key])
+	out_data = []
 
-		new_boxes, new_probs = roi_helpers.non_max_suppression_fast(bbox, np.array(probs[key]), overlap_thresh=0.5)
+	for label in bboxes:
+
+		new_boxes, new_probs = roi_helpers.non_max_suppression_fast(np.array(bboxes[label]), np.array(probs[label]), overlap_thresh=0.5)
 		for jk in range(new_boxes.shape[0]):
 			(x1, y1, x2, y2) = new_boxes[jk,:]
 
-			cv2.rectangle(img_scaled,(x1, y1), (x2, y2), class_to_color[key],2)
+			cv2.rectangle(img_scaled,(x1, y1), (x2, y2), class_to_color[label],2)
 
-			textLabel = '{}: {}'.format(key,int(100*new_probs[jk]))
-			all_dets.append((key,100*new_probs[jk]))
+			textLabel = '{}: {}'.format(label,int(100*new_probs[jk]))
+			all_dets.append((label,100*new_probs[jk]))
 
 			(retval,baseLine) = cv2.getTextSize(textLabel,cv2.FONT_HERSHEY_COMPLEX,1,1)
 			textOrg = (x1, y1-0)
@@ -213,8 +217,22 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 			cv2.rectangle(img_scaled, (textOrg[0] - 5, textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (0, 0, 0), 2)
 			cv2.rectangle(img_scaled, (textOrg[0] - 5,textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (255, 255, 255), -1)
 			cv2.putText(img_scaled, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
-	print('Elapsed time = {}'.format(time.time() - st))
+
+			out_data.append({
+				"label": label,
+				"x1": x1,
+				"y1": y1,
+				"x2": x2,
+				"y2": y2,
+				"prob": new_probs[jk].tolist()
+			})
+
+	# Write bboxes and probs to disk
+	with open('/output/predictions/'+img_name+'.json', 'w') as json_path:
+		json.dump(out_data, json_path)
+
+	#print('Elapsed time = {}'.format(time.time() - st))
 	#cv2.imshow('img', img_scaled)
 	#cv2.waitKey(0)
-	cv2.imwrite('./imgs/{}.png'.format(idx),img_scaled)
-	print(all_dets)
+	cv2.imwrite('/output/imgs/{}.png'.format(img_name), img_scaled)
+	#print(all_dets)
