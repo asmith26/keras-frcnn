@@ -2,26 +2,20 @@ from __future__ import division
 import glob
 import json
 
-import numpy as np
 import pandas as pd
 
 TEST1_GLOB = "fish-data/output/test_stg1/*/predictions/*"
 TEST2_GLOB = "fish-data/output/test_stg2/*/predictions/*"
 
 OUT_PATH = "fish-data/output/predictions_no_clip.csv"
-#OUT_PATH = "fish-data/output/predictions_clipped.csv"
+OUT_PATH_CLIPPED = "fish-data/output/predictions_clipped.csv"
 
-TEST_STAGE2 = False
-DO_CLIP = 0.82  # value (JH used 0.82) or False
 NUM_CLASSES = 8
 
-
-submissions = []
-for json_file in glob.glob(TEST1_GLOB):
-
+def get_one_prediction(json_file, do_clip, test_stage2):
     # Get image name (in the format required by Kaggle)
     img_name = json_file.split("/")[-1].split(".json")[0]
-    if TEST_STAGE2:
+    if test_stage2:
         img_name = "test_stg2/{}".format(img_name)
 
     # Get predictions
@@ -53,8 +47,8 @@ for json_file in glob.glob(TEST1_GLOB):
             row[label] = summed_prob / total_probs
 
     # clip result (to reduce penalisation for bad predictions)
-    if DO_CLIP:
-        max_value = DO_CLIP
+    if do_clip:
+        max_value = do_clip
         min_value = (1 - max_value) / (NUM_CLASSES - 1)
 
         for label, prob in row.items():
@@ -64,9 +58,21 @@ for json_file in glob.glob(TEST1_GLOB):
                 row[label] = max_value
 
     row["image"] = img_name
-    submissions.append(row)
+    return row
 
-pd.DataFrame(submissions).to_csv(OUT_PATH,
-                      sep=',',
-                      index=False,
-                      encoding='utf-8')
+def create_kaggle_subimmision(out_path, do_clip):
+    submissions = []
+    for json_file in glob.glob(TEST1_GLOB):
+        submissions.append(get_one_prediction(json_file, do_clip, test_stage2=False))
+
+    for json_file in glob.glob(TEST2_GLOB):
+        submissions.append(get_one_prediction(json_file, do_clip, test_stage2=True))
+
+
+    pd.DataFrame(submissions).to_csv(out_path,
+                          sep=',',
+                          index=False,
+                          encoding='utf-8')
+
+create_kaggle_subimmision(OUT_PATH, do_clip=False)
+create_kaggle_subimmision(OUT_PATH_CLIPPED, do_clip=0.7)  # JH used 0.82
