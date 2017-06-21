@@ -8,7 +8,8 @@ TEST1_GLOB = "fish-data/output/test_stg1/*/predictions/*"
 TEST2_GLOB = "fish-data/output/test_stg2/*/predictions/*"
 
 OUT_PATH = "fish-data/output/predictions_no_clip.csv"
-OUT_PATH_CLIPPED = "fish-data/output/predictions_clipped.csv"
+OUT_PATH_CLIPPED_82= "fish-data/output/predictions_clipped_82.csv"
+OUT_PATH_CLIPPED_70= "fish-data/output/predictions_clipped_70.csv"
 
 NUM_CLASSES = 8
 
@@ -75,4 +76,5 @@ def create_kaggle_subimmision(out_path, do_clip):
                           encoding='utf-8')
 
 create_kaggle_subimmision(OUT_PATH, do_clip=False)
-create_kaggle_subimmision(OUT_PATH_CLIPPED, do_clip=0.7)  # JH used 0.82
+create_kaggle_subimmision(OUT_PATH_CLIPPED_82, do_clip=0.82)  # JH used 0.82
+create_kaggle_subimmision(OUT_PATH_CLIPPED_70, do_clip=0.7)
